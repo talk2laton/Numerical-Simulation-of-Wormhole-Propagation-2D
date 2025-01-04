@@ -1,0 +1,4 @@
+1.2e-8     % Coefficient of dispersion
+6.6e-9     % Molecular diffusivity (m^2/sec)
+1.3e-6     % Local diffusion constant (sec^-1)
+0.6        % Order of Reaction

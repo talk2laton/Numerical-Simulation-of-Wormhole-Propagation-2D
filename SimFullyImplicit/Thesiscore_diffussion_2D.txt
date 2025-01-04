@@ -1,0 +1,25 @@
+2.4       % core length (inch)
+1.50      % core width (inch)
+80        % Nx grid number
+51        % Ny grid number                      
+20        % Out let pressure (atm)
+1         % flow rate (cc/min)
+295       % Temperature (K)      
+60        % Operation time (minutes)
+10        % Time step ( second)
+1e4       % Sepecific area for fast reacting mineral (Calcite-m2/kg)
+7.55e3    % Constant of arrehnus rate law for (fast-HCl)
+7.291e7   % Reaction rate constant Ef0 (fast-HCl) kg-mole mineral/(m2-sec-(kg-mole HCl/m3) acid)
+2711      % Density of fast reacting mineral (kg/m3 (density of Calcite))
+12        % Concentration of HCl( wt%)
+0.89      % Viscosity of Acid (cp)
+1089.76   % Density of acid (kg/m3)
+0.80      % Volume fraction of fast mineral (Calcite)
+36.5      % Molecular weight of Hydrochloric acid
+100.09    % Molecular weight of Calcite
+2         % Stoichiometric Coefficient of HCl in Calcite-HCl reaction
+1         % Stoichiometric Coefficient of Calcite in Calcite-HCl reaction
+2.53      % initial permeability
+0.5       % Transverse permeability factor
+0.135     % Initial mean porosity
+0.05      % Heterogeity factor
