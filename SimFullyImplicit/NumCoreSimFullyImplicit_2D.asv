@@ -27,7 +27,6 @@ function PVfinal = NumCoreSimFullyImplicit_2D(q, PVlimit)
     Ks        = data(22);      % Initial Permeability
     zymultply = data(23);      % horizontal permeability factor
     phio      = data(24);      % Iniital mean porosity
-    delPhi    = data(25);      % Heterogeity factor
     data2     = load('ReactiveFlow.txt');
     alphax    = data2(1);      % coefficient of diffusion
     Dm        = data2(2);      % Molecular diffusivity (m^2/sec)
@@ -74,6 +73,7 @@ function PVfinal = NumCoreSimFullyImplicit_2D(q, PVlimit)
     
     ymid  = (Ny + 1)/2;
     
+    radialedge = Ny - ymid;
     radialdist = abs(Nny - ymid);
     indx       = (radialdist <= radialedge)&(Nnx < Nx)&(Nnx > 1); 
     full_indx  = (1:M)';
@@ -112,16 +112,13 @@ function PVfinal = NumCoreSimFullyImplicit_2D(q, PVlimit)
         afrac = 0;
         mx = 0;
         my = 0; 
-        mz = 0;  
         IDm = 0;  
         H = 0;  
         Ny = 0;  
         IDmm1 = 0;  
         IDmp1 = 0;  
-        IDmmNz = 0;  
-        IDmpNz = 0;  
-        IDmmNyNz = 0;  
-        IDmpNyNz = 0; 
+        IDmmNy = 0;  
+        IDmpNy = 0; 
         MP1 = 0;   
         Injloc = 0;  
         L = 0;  
@@ -131,7 +128,6 @@ function PVfinal = NumCoreSimFullyImplicit_2D(q, PVlimit)
         gridordinate = 0;  
         gridX = 0; 
         gridY = 0;  
-        gridZ = 0; 
         Pguess = 0; 
         gridI = 0;
         qpref = 0;
@@ -156,25 +152,22 @@ function PVfinal = NumCoreSimFullyImplicit_2D(q, PVlimit)
     Ef1   = Ef0*exp(-DeltaE_R/Temp);
     dxp   = Lp/Nx;
     dyp   = wp/Ny;
-    dzp   = Hp/Nz;
+    dzp   = dyp;
     Vbp   = dxp*dyp*dzp;
     Axp   = dzp*dyp;
     Ayp   = dzp*dxp;
-    Azp   = dxp*dyp;
     
     dxc   = Lc/Nx;
     dyc   = wc/Ny;
-    dzc   = Hc/Nz;
+    dzc   = dyc;
     Vbc   = dxc*dyc*dzc;
     Axc   = dzc*dyc;
     Ayc   = dzc*dxc;
-    Azc   = dxc*dyc;
     
     alphay  = zymultply*alphax;
-    alphaz  = zymultply*alphax;
     
     S1    = Sm*rhoM;
-    VB    = pi*wp*Hp*Lp/4;
+    VB    = wp*dzp*Lp;
     disp(['core volume (cc) = ', num2str(VB)])
     PoV   = VB*phio;
     disp(['pore volume (cc) = ', num2str(PoV)])
@@ -201,7 +194,7 @@ function PVfinal = NumCoreSimFullyImplicit_2D(q, PVlimit)
     nphio         = phio;
     MeanPorosity  = nphio;
     MeanK         = @(K, m1, m2) harmmean([K(m1),K(m2)],2);
-    MeanKfactor   = 4e3*qp*miu_acid*Lp/(pi*wp^2);
+    MeanKfactor   = 1e3*qp*miu_acid*Lp/(wp*dzp);
     
     
     %% Initialization  
@@ -222,54 +215,54 @@ function PVfinal = NumCoreSimFullyImplicit_2D(q, PVlimit)
     
 
     %% Indecies for elements of the jacobian
-    I_idx = [[IDm; IDm; IDm; IDm; IDm; IDm; IDm; ...    % dRpdp
-              IDm; IDm; IDm; IDm; IDm; IDm; IDm; ...    % dRpdc
-              IDm;   ...                                % dRpdv
-              INJm]; ...                                % dRpdInjp
+    I_idx = [[IDm; IDm; IDm; IDm; IDm; ...    % dRpdp
+              IDm; IDm; IDm; IDm; IDm; ...    % dRpdc
+              IDm;   ...                      % dRpdv
+              INJm]; ...                      % dRpdInjp
 
-         M + [IDm; IDm; IDm; IDm; IDm; IDm; IDm; ...    % dRcdp
-              IDm; IDm; IDm; IDm; IDm; IDm; IDm; ...    % dRcdc
-              IDm;   ...                                % dRcdv
-              INJm]; ...                                % dRcdInjp
+         M + [IDm; IDm; IDm; IDm; IDm; ...    % dRcdp
+              IDm; IDm; IDm; IDm; IDm; ...    % dRcdc
+              IDm;   ...                      % dRcdv
+              INJm]; ...                      % dRcdInjp
 
-       2*M + [IDm; IDm; IDm; IDm; IDm; IDm; IDm; ...    % dRvdp
-              IDm; IDm; IDm; IDm; IDm; IDm; IDm; ...    % dRvdc
-              IDm;   ...                                % dRvdv 
-              INJm]; ...                                % dRvdInjp 
+       2*M + [IDm; IDm; IDm; IDm; IDm; ...    % dRvdp
+              IDm; IDm; IDm; IDm; IDm; ...    % dRvdc
+              IDm;   ...                      % dRvdv 
+              INJm]; ...                      % dRvdInjp 
 
-       3*M + ones(size(INJm));                          % dRidp
-       3*M + 1];                                        % dRidInjp   
+       3*M + ones(size(INJm));                % dRidp
+       3*M + 1];                              % dRidInjp   
 
               
-    J_idx = [[IDmmNyNz; IDmmNz; IDmm1; IDm; IDmp1; IDmpNz; IDmpNyNz; ....         % dRpdp
-             M + [IDmmNyNz; IDmmNz; IDmm1; IDm; IDmp1; IDmpNz; IDmpNyNz]; ....    % dRpdc
-             2*M + IDm;               ...                                         % dRpdv
-             3*M + ones(size(INJm))]; ...                                         % dRpdInjp
+    J_idx = [[IDmmNy; IDmm1; IDm; IDmp1; IDmpNy; ....         % dRpdp
+             M + [IDmmNy; IDmm1; IDm; IDmp1; IDmpNy]; ....    % dRpdc
+             2*M + IDm;               ...                     % dRpdv
+             3*M + ones(size(INJm))]; ...                     % dRpdInjp
 
-             [IDmmNyNz; IDmmNz; IDmm1; IDm; IDmp1; IDmpNz; IDmpNyNz; ....         % dRcdp
-             M + [IDmmNyNz; IDmmNz; IDmm1; IDm; IDmp1; IDmpNz; IDmpNyNz]; ....    % dRcdc
-             2*M + IDm;               ...                                         % dRcdv
-             3*M + ones(size(INJm))]; ...                                         % dRcdInjp
+             [IDmmNy; IDmm1; IDm; IDmp1; IDmpNy; ....         % dRcdp
+             M + [IDmmNy; IDmm1; IDm; IDmp1; IDmpNy]; ....    % dRcdc
+             2*M + IDm;               ...                     % dRcdv
+             3*M + ones(size(INJm))]; ...                     % dRcdInjp
 
-             [IDmmNyNz; IDmmNz; IDmm1; IDm; IDmp1; IDmpNz; IDmpNyNz; ....         % dRvdp
-             M + [IDmmNyNz; IDmmNz; IDmm1; IDm; IDmp1; IDmpNz; IDmpNyNz]; ....    % dRvdc
-             2*M + IDm;               ...                                         % dRvdv
-             3*M + ones(size(INJm))]; ...                                         % dRvdInjp                           
+             [IDmmNy; IDmm1; IDm; IDmp1; IDmpNy; ....         % dRvdp
+             M + [IDmmNy; IDmm1; IDm; IDmp1; IDmpNy]; ....    % dRvdc
+             2*M + IDm;               ...                     % dRvdv
+             3*M + ones(size(INJm))]; ...                     % dRvdInjp                           
 
-             INJm;    ...                                                         % dRidp
-             3*M + 1];                                                            % dRidInjp 
+             INJm;    ...                                     % dRidp
+             3*M + 1];                                        % dRidInjp 
 
     Jremove = [NIDm; M + NIDm; 2*M + NIDm];
     n_Idx = numel(IDm);
     nIndx = 1:n_Idx;
 
     % Vectorised Residual function
-    function [Rp, Rc, Rv, Ri] = Residual(PmmNyNz, PmmNz, Pmm1, Pm, Pmp1, PmpNz, PmpNyNz, ...
-                                         CmmNyNz, CmmNz, Cmm1, Cm, Cmp1, CmpNz, CmpNyNz, ...
+    function [Rp, Rc, Rv, Ri] = Residual(PmmNy, Pmm1, Pm, Pmp1, PmpNy, ...
+                                         CmmNy, Cmm1, Cm, Cmp1, CmpNy, ...
                                          Vm, Pinj)
 
-        PmpNyNz(Exitloc) = Pout;      CmpNyNz(Exitloc) = 0;
-        PmmNyNz(Injloc)  = Pinj;      CmmNyNz(Injloc)  = C_HCl;
+        PmpNy(Exitloc) = Pout;      CmpNy(Exitloc) = 0;
+        PmmNy(Injloc)  = Pinj;      CmmNy(Injloc)  = C_HCl;
 
         % Compute Porosity
         Phi(IDm) = Phidist(IDm) + (1 - Phidist(IDm)).*(v1 - Vm); 
@@ -294,40 +287,32 @@ function PVfinal = NumCoreSimFullyImplicit_2D(q, PVlimit)
         DPhiDT = (1 - Phidist(IDm))*Vbp.*Vm*S1*Ef1.*Cs*(nM/nA)*(MW_CaCO3/rhoM);
                   % + Phidist(IDm)*Vbp*Comp*(P(IDm, n) - Pm)
 
-        % Compute Mean Permeabilities
-        KZmmm1    = MeanK(Kz, IDm, IDmm1);    
-        KZmmp1    = MeanK(Kz, IDm, IDmp1);    
-        KYmmmNz   = MeanK(Ky, IDm, IDmmNz);    
-        KYmmpNz   = MeanK(Ky, IDm, IDmpNz);    
-        KXmmmNyNz = MeanK(Kx, IDm, IDmmNyNz); 
-        KXmmpNyNz = MeanK(Kx, IDm, IDmpNyNz); 
+        % Compute Mean Permeabilities  
+        KYmmm1  = MeanK(Ky, IDm, IDmm1);    
+        KYmmp1  = MeanK(Ky, IDm, IDmp1);    
+        KXmmmNy = MeanK(Kx, IDm, IDmmNy); 
+        KXmmpNy = MeanK(Kx, IDm, IDmpNy); 
         
-        % Compute Transmisibilities
-        TZmmm1    = KZmmm1*Azp/(miu_acid*dzp);    
-        TZmmp1    = KZmmp1*Azp/(miu_acid*dzp);    
-        TYmmmNz   = KYmmmNz*Ayp/(miu_acid*dyp);    
-        TYmmpNz   = KYmmpNz*Ayp/(miu_acid*dyp);    
-        TXmmmNyNz = KXmmmNyNz*Axp/(miu_acid*dxp); 
-        TXmmpNyNz = KXmmpNyNz*Axp/(miu_acid*dxp);  
+        % Compute Transmisibilities  
+        TYmmm1  = KYmmm1*Ayp/(miu_acid*dyp);    
+        TYmmp1  = KYmmp1*Ayp/(miu_acid*dyp);    
+        TXmmmNy = KXmmmNy*Axp/(miu_acid*dxp); 
+        TXmmpNy = KXmmpNy*Axp/(miu_acid*dxp);  
 
         % Compute Pressure Difference
-        DPmmm1    = Pm - Pmm1;    
-        DPmmp1    = Pm - Pmp1;
-        DPmmmNz   = Pm - PmmNz;   
-        DPmmpNz   = Pm - PmpNz;
-        DPmmmNyNz = Pm - PmmNyNz; 
-        DPmmpNyNz = Pm - PmpNyNz;
+        DPmmm1  = Pm - Pmm1;    
+        DPmmp1  = Pm - Pmp1;
+        DPmmmNy = Pm - PmmNy; 
+        DPmmpNy = Pm - PmpNy;
 
         % Compute Fluxes
-        JPmmm1    = TZmmm1.*(Pmm1 - Pm);
-        JPmmp1    = TZmmp1.*(Pmp1 - Pm);
-        JPmmmNz   = TYmmmNz.*(PmmNz - Pm);
-        JPmmpNz   = TYmmpNz.*(PmpNz - Pm);
-        JPmmmNyNz = TXmmmNyNz.*(PmmNyNz - Pm);
-        JPmmpNyNz = TXmmpNyNz.*(PmpNyNz - Pm);
+        JPmmm1  = TYmmm1.*(Pmm1 - Pm);
+        JPmmp1  = TYmmp1.*(Pmp1 - Pm);
+        JPmmmNy = TXmmmNy.*(PmmNy - Pm);
+        JPmmpNy = TXmmpNy.*(PmpNy - Pm);
 
         % Sum Fluxes
-        SumJP = JPmmmNyNz + JPmmmNz + JPmmm1 + JPmmp1 + JPmmpNz + JPmmpNyNz; 
+        SumJP = JPmmmNy + JPmmm1 + JPmmp1 + JPmmpNy; 
 
         % Compute Residual
         Rp    = (SumJP - DPhiDT)*dt;
@@ -335,31 +320,25 @@ function PVfinal = NumCoreSimFullyImplicit_2D(q, PVlimit)
  %%  %%%%%%%%%%%%% Compute Reaction Residual %%%%%%%%%%%%%%  %%
 
         % Compute Velocities Using Darcy Law (m/s)
-        Vzmmm1    = -0.01*KZmmm1.*DPmmm1/(miu_acid*dzp);    
-        Vzmmp1    = -0.01*KZmmp1.*DPmmp1/(miu_acid*dzp); 
-        VymmmNz   = -0.01*KYmmmNz.*DPmmmNz/(miu_acid*dyp);    
-        VymmpNz   = -0.01*KYmmpNz.*DPmmpNz/(miu_acid*dyp); 
-        VxmmmNyNz = -0.01*KXmmmNyNz.*DPmmmNyNz/(miu_acid*dxp); 
-        VxmmpNyNz = -0.01*KXmmpNyNz.*DPmmpNyNz/(miu_acid*dxp);
+        Vymmm1  = -0.01*KYmmm1.*DPmmm1/(miu_acid*dyp);    
+        Vymmp1  = -0.01*KYmmp1.*DPmmp1/(miu_acid*dyp); 
+        VxmmmNy = -0.01*KXmmmNy.*DPmmmNy/(miu_acid*dxp); 
+        VxmmpNy = -0.01*KXmmpNy.*DPmmpNy/(miu_acid*dxp);
 
         % Applying Upstream Weighting to Determine Flowing Concentration
-        Cflowmmm1    = Cm.*(DPmmm1 >= 0) + Cmm1.*(DPmmm1 < 0); 
-        Cflowmmp1    = Cm.*(DPmmp1 >= 0) + Cmp1.*(DPmmp1 < 0); 
-        CflowmmmNz   = Cm.*(DPmmmNz >= 0) + CmmNz.*(DPmmmNz < 0); 
-        CflowmmpNz   = Cm.*(DPmmpNz >= 0) + CmpNz.*(DPmmpNz < 0); 
-        CflowmmmNyNz = Cm.*(DPmmmNyNz >= 0) + CmmNyNz.*(DPmmmNyNz < 0); 
-        CflowmmpNyNz = Cm.*(DPmmpNyNz >= 0) + CmpNyNz.*(DPmmpNyNz < 0);
+        Cflowmmm1  = Cm.*(DPmmm1 >= 0) + Cmm1.*(DPmmm1 < 0); 
+        Cflowmmp1  = Cm.*(DPmmp1 >= 0) + Cmp1.*(DPmmp1 < 0); 
+        CflowmmmNy = Cm.*(DPmmmNy >= 0) + CmmNy.*(DPmmmNy < 0); 
+        CflowmmpNy = Cm.*(DPmmpNy >= 0) + CmpNy.*(DPmmpNy < 0); 
 
         % Compute Fluxes
-        JCmmm1    = dt*Azc*((Cmm1 - Cm).*(Dm + alphaz*abs(Vzmmm1))/dzc + Cflowmmm1.*Vzmmm1);
-        JCmmp1    = dt*Azc*((Cmp1 - Cm).*(Dm + alphaz*abs(Vzmmp1))/dzc + Cflowmmp1.*Vzmmp1);
-        JCmmmNz   = dt*Ayc*((CmmNz - Cm).*(Dm + alphay*abs(VymmmNz))/dyc + CflowmmmNz.*VymmmNz);
-        JCmmpNz   = dt*Ayc*((CmpNz - Cm).*(Dm + alphay*abs(VymmpNz))/dyc + CflowmmpNz.*VymmpNz);
-        JCmmmNyNz = dt*Axc*((CmmNyNz - Cm).*(Dm + alphax*abs(VxmmmNyNz))/dxc + CflowmmmNyNz.*VxmmmNyNz);
-        JCmmpNyNz = dt*Axc*((CmpNyNz - Cm).*(Dm + alphax*abs(VxmmpNyNz))/dxc + CflowmmpNyNz.*VxmmpNyNz);
+        JCmmm1  = dt*Ayc*((Cmm1 - Cm).*(Dm + alphay*abs(Vymmm1))/dyc + Cflowmmm1.*Vymmm1);
+        JCmmp1  = dt*Ayc*((Cmp1 - Cm).*(Dm + alphay*abs(Vymmp1))/dyc + Cflowmmp1.*Vymmp1);
+        JCmmmNy = dt*Axc*((CmmNy - Cm).*(Dm + alphax*abs(VxmmmNy))/dxc + CflowmmmNy.*VxmmmNy);
+        JCmmpNy = dt*Axc*((CmpNy - Cm).*(Dm + alphax*abs(VxmmpNy))/dxc + CflowmmpNy.*VxmmpNy);
 
         % Sum Fluxes
-        SumJC = JCmmmNyNz + JCmmmNz + JCmmm1 + JCmmp1 + JCmmpNz + JCmmpNyNz; 
+        SumJC = JCmmmNy + JCmmm1 + JCmmp1 + JCmmpNy; 
 
         % Compute Residuals
         Rc = SumJC - (1 - Phidist(IDm)).*Vm.*Cs*Vbc*S1*Ef1*dt - ...
@@ -373,36 +352,27 @@ function PVfinal = NumCoreSimFullyImplicit_2D(q, PVlimit)
     end
 
     % Vectorized Jacobian of the Residual
-    function J = Jacobian(PmmNyNz, PmmNz, Pmm1, Pm, Pmp1, PmpNz, PmpNyNz, ...
-                          CmmNyNz, CmmNz, Cmm1, Cm, Cmp1, CmpNz, CmpNyNz, ...
+    function J = Jacobian(PmmNy, Pmm1, Pm, Pmp1, PmpNy, ...
+                          CmmNy, Cmm1, Cm, Cmp1, CmpNy, ...
                           Vm, Pinj, Rp, Rc, Rv, Ri)     
 
-        TXmmmNyNz = MeanK(Kx, IDm, IDmmNyNz)*Axp/(miu_acid*dxp);
         %% Derivatives with respect to Pressures
         dl = 2e-8;
         
-        % Perturb PmmNyNz
-        del = dl*(abs(PmmNyNz) + 1);
-        [Rp_, Rc_, Rv_, ~] = Residual(PmmNyNz+del, PmmNz, Pmm1, Pm, Pmp1, PmpNz, PmpNyNz, ...
-                                      CmmNyNz, CmmNz, Cmm1, Cm, Cmp1, CmpNz, CmpNyNz, ...
-                                       Vm, Pinj);
-        dRpdPmmNyNz = (Rp_-Rp)./del;
-        dRcdPmmNyNz = (Rc_-Rc)./del;
-        dRvdPmmNyNz = (Rv_-Rv)./del;
 
-        % Perturb PmmNz
-        del = dl*(abs(PmmNz) + 1);
-        [Rp_, Rc_, Rv_, ~] = Residual(PmmNyNz, PmmNz+del, Pmm1, Pm, Pmp1, PmpNz, PmpNyNz, ...
-                                      CmmNyNz, CmmNz, Cmm1, Cm, Cmp1, CmpNz, CmpNyNz, ...
+        % Perturb PmmNy
+        del = dl*(abs(PmmNy) + 1);
+        [Rp_, Rc_, Rv_, ~] = Residual(PmmNy+del, Pmm1, Pm, Pmp1, PmpNy, ...
+                                      CmmNy, Cmm1, Cm, Cmp1, CmpNy, ...
                                       Vm, Pinj);
-        dRpdPmmNz = (Rp_-Rp)./del;
-        dRcdPmmNz = (Rc_-Rc)./del;
-        dRvdPmmNz = (Rv_-Rv)./del;
+        dRpdPmmNy = (Rp_-Rp)./del;
+        dRcdPmmNy = (Rc_-Rc)./del;
+        dRvdPmmNy = (Rv_-Rv)./del;
 
         % Perturb Pmm1
         del = dl*(abs(Pmm1) + 1);
-        [Rp_, Rc_, Rv_, ~] = Residual(PmmNyNz, PmmNz, Pmm1+del, Pm, Pmp1, PmpNz, PmpNyNz, ...
-                                      CmmNyNz, CmmNz, Cmm1, Cm, Cmp1, CmpNz, CmpNyNz, ...
+        [Rp_, Rc_, Rv_, ~] = Residual(PmmNy, Pmm1+del, Pm, Pmp1, PmpNy, ...
+                                      CmmNy, Cmm1, Cm, Cmp1, CmpNy, ...
                                       Vm, Pinj);
         dRpdPmm1 = (Rp_-Rp)./del;
         dRcdPmm1 = (Rc_-Rc)./del;
@@ -410,8 +380,8 @@ function PVfinal = NumCoreSimFullyImplicit_2D(q, PVlimit)
 
         % Perturb Pm
         del = dl*(abs(Pm) + 1);
-        [Rp_, Rc_, Rv_, ~] = Residual(PmmNyNz, PmmNz, Pmm1, Pm+del, Pmp1, PmpNz, PmpNyNz, ...
-                                      CmmNyNz, CmmNz, Cmm1, Cm, Cmp1, CmpNz, CmpNyNz, ...
+        [Rp_, Rc_, Rv_, ~] = Residual(PmmNy, Pmm1, Pm+del, Pmp1, PmpNy, ...
+                                      CmmNy, Cmm1, Cm, Cmp1, CmpNy, ...
                                       Vm, Pinj);
         dRpdPm = (Rp_-Rp)./del;
         dRcdPm = (Rc_-Rc)./del;
@@ -419,55 +389,37 @@ function PVfinal = NumCoreSimFullyImplicit_2D(q, PVlimit)
 
         % Perturb Pmp1
         del = dl*(abs(Pmp1) + 1);
-        [Rp_, Rc_, Rv_, ~] = Residual(PmmNyNz, PmmNz, Pmm1, Pm, Pmp1+del, PmpNz, PmpNyNz, ...
-                                      CmmNyNz, CmmNz, Cmm1, Cm, Cmp1, CmpNz, CmpNyNz, ...
+        [Rp_, Rc_, Rv_, ~] = Residual(PmmNy, Pmm1, Pm, Pmp1+del, PmpNy, ...
+                                      CmmNy, Cmm1, Cm, Cmp1, CmpNy, ...
                                       Vm, Pinj);
         dRpdPmp1 = (Rp_-Rp)./del;
         dRcdPmp1 = (Rc_-Rc)./del;
         dRvdPmp1 = (Rv_-Rv)./del;
 
-        % Perturb PmpNz
-        del = dl*(abs(PmpNz) + 1);
-        [Rp_, Rc_, Rv_, ~] = Residual(PmmNyNz, PmmNz, Pmm1, Pm, Pmp1, PmpNz+del, PmpNyNz, ...
-                                      CmmNyNz, CmmNz, Cmm1, Cm, Cmp1, CmpNz, CmpNyNz, ...
+        % Perturb PmpNy
+        del = dl*(abs(PmpNy) + 1);
+        [Rp_, Rc_, Rv_, ~] = Residual(PmmNy, Pmm1, Pm, Pmp1, PmpNy+del, ...
+                                      CmmNy, Cmm1, Cm, Cmp1, CmpNy, ...
                                       Vm, Pinj);
-        dRpdPmpNz = (Rp_-Rp)./del;
-        dRcdPmpNz = (Rc_-Rc)./del;
-        dRvdPmpNz = (Rv_-Rv)./del;
-
-        % Perturb PmpNyNz
-        del = dl*(abs(PmpNyNz) + 1);
-        [Rp_, Rc_, Rv_, ~] = Residual(PmmNyNz, PmmNz, Pmm1, Pm, Pmp1, PmpNz, PmpNyNz+del, ...
-                                      CmmNyNz, CmmNz, Cmm1, Cm, Cmp1, CmpNz, CmpNyNz, ...
-                                       Vm, Pinj);
-        dRpdPmpNyNz = (Rp_-Rp)./del;
-        dRcdPmpNyNz = (Rc_-Rc)./del;
-        dRvdPmpNyNz = (Rv_-Rv)./del;
+        dRpdPmpNy = (Rp_-Rp)./del;
+        dRcdPmpNy = (Rc_-Rc)./del;
+        dRvdPmpNy = (Rv_-Rv)./del;
 
 
         %% Derivatives with respect to Concentration
-        % Perturb CmmNyNz
-        del = dl*(abs(CmmNyNz) + 1);
-        [Rp_, Rc_, Rv_, ~] = Residual(PmmNyNz, PmmNz, Pmm1, Pm, Pmp1, PmpNz, PmpNyNz, ...
-                                      CmmNyNz+del, CmmNz, Cmm1, Cm, Cmp1, CmpNz, CmpNyNz, ...
-                                       Vm, Pinj);
-        dRpdCmmNyNz = (Rp_-Rp)./del;
-        dRcdCmmNyNz = (Rc_-Rc)./del;
-        dRvdCmmNyNz = (Rv_-Rv)./del;
-
-        % Perturb CmmNz
-        del = dl*(abs(CmmNz) + 1);
-        [Rp_, Rc_, Rv_, ~] = Residual(PmmNyNz, PmmNz, Pmm1, Pm, Pmp1, PmpNz, PmpNyNz, ...
-                                      CmmNyNz, CmmNz+del, Cmm1, Cm, Cmp1, CmpNz, CmpNyNz, ...
+        % Perturb CmmNy
+        del = dl*(abs(CmmNy) + 1);
+        [Rp_, Rc_, Rv_, ~] = Residual(PmmNy, Pmm1, Pm, Pmp1, PmpNy, ...
+                                      CmmNy+del, Cmm1, Cm, Cmp1, CmpNy, ...
                                       Vm, Pinj);
-        dRpdCmmNz = (Rp_-Rp)./del;
-        dRcdCmmNz = (Rc_-Rc)./del;
-        dRvdCmmNz = (Rv_-Rv)./del;
+        dRpdCmmNy = (Rp_-Rp)./del;
+        dRcdCmmNy = (Rc_-Rc)./del;
+        dRvdCmmNy = (Rv_-Rv)./del;
 
         % Perturb Cmm1
         del = dl*(abs(Cmm1) + 1);
-        [Rp_, Rc_, Rv_, ~] = Residual(PmmNyNz, PmmNz, Pmm1, Pm, Pmp1, PmpNz, PmpNyNz, ...
-                                      CmmNyNz, CmmNz, Cmm1+del, Cm, Cmp1, CmpNz, CmpNyNz, ...
+        [Rp_, Rc_, Rv_, ~] = Residual(PmmNy, Pmm1, Pm, Pmp1, PmpNy, ...
+                                      CmmNy, Cmm1+del, Cm, Cmp1, CmpNy, ...
                                       Vm, Pinj);
         dRpdCmm1 = (Rp_-Rp)./del;
         dRcdCmm1 = (Rc_-Rc)./del;
@@ -475,8 +427,8 @@ function PVfinal = NumCoreSimFullyImplicit_2D(q, PVlimit)
 
         % Perturb Cm
         del = dl*(abs(Cm) + 1);
-        [Rp_, Rc_, Rv_, ~] = Residual(PmmNyNz, PmmNz, Pmm1, Pm, Pmp1, PmpNz, PmpNyNz, ...
-                                      CmmNyNz, CmmNz, Cmm1, Cm+del, Cmp1, CmpNz, CmpNyNz, ...
+        [Rp_, Rc_, Rv_, ~] = Residual(PmmNy, Pmm1, Pm, Pmp1, PmpNy, ...
+                                      CmmNy, Cmm1, Cm+del, Cmp1, CmpNy, ...
                                       Vm, Pinj);
         dRpdCm = (Rp_-Rp)./del;
         dRcdCm = (Rc_-Rc)./del;
@@ -484,36 +436,27 @@ function PVfinal = NumCoreSimFullyImplicit_2D(q, PVlimit)
 
         % Perturb Cmp1
         del = dl*(abs(Cmp1) + 1);
-        [Rp_, Rc_, Rv_, ~] = Residual(PmmNyNz, PmmNz, Pmm1, Pm, Pmp1, PmpNz, PmpNyNz, ...
-                                      CmmNyNz, CmmNz, Cmm1, Cm, Cmp1+del, CmpNz, CmpNyNz, ...
+        [Rp_, Rc_, Rv_, ~] = Residual(PmmNy, Pmm1, Pm, Pmp1, PmpNy, ...
+                                      CmmNy, Cmm1, Cm, Cmp1+del, CmpNy, ...
                                       Vm, Pinj);
         dRpdCmp1 = (Rp_-Rp)./del;
         dRcdCmp1 = (Rc_-Rc)./del;
         dRvdCmp1 = (Rv_-Rv)./del;
 
-        % Perturb CmpNz
-        del = dl*(abs(CmpNz) + 1);
-        [Rp_, Rc_, Rv_, ~] = Residual(PmmNyNz, PmmNz, Pmm1, Pm, Pmp1, PmpNz, PmpNyNz, ...
-                                      CmmNyNz, CmmNz, Cmm1, Cm, Cmp1, CmpNz+del, CmpNyNz, ...
+        % Perturb CmpNy
+        del = dl*(abs(CmpNy) + 1);
+        [Rp_, Rc_, Rv_, ~] = Residual(PmmNy, Pmm1, Pm, Pmp1, PmpNy, ...
+                                      CmmNy, Cmm1, Cm, Cmp1, CmpNy+del, ...
                                       Vm, Pinj);
-        dRpdCmpNz = (Rp_-Rp)./del;
-        dRcdCmpNz = (Rc_-Rc)./del;
-        dRvdCmpNz = (Rv_-Rv)./del;
-
-        % Perturb CmpNyNz
-        del = dl*(abs(CmpNyNz) + 1);
-        [Rp_, Rc_, Rv_, ~] = Residual(PmmNyNz, PmmNz, Pmm1, Pm, Pmp1, PmpNz, PmpNyNz, ...
-                                      CmmNyNz, CmmNz, Cmm1, Cm, Cmp1, CmpNz, CmpNyNz+del, ...
-                                       Vm, Pinj);
-        dRpdCmpNyNz = (Rp_-Rp)./del;
-        dRcdCmpNyNz = (Rc_-Rc)./del;
-        dRvdCmpNyNz = (Rv_-Rv)./del;
+        dRpdCmpNy = (Rp_-Rp)./del;
+        dRcdCmpNy = (Rc_-Rc)./del;
+        dRvdCmpNy = (Rv_-Rv)./del;
 
         %% Derivatives with respect to Volume fraction
         % Perturb Vm
         del = dl*(abs(Vm) + 1);
-        [Rp_, Rc_, Rv_, ~] = Residual(PmmNyNz, PmmNz, Pmm1, Pm, Pmp1, PmpNz, PmpNyNz, ...
-                                      CmmNyNz, CmmNz, Cmm1, Cm, Cmp1, CmpNz, CmpNyNz, ...
+        [Rp_, Rc_, Rv_, ~] = Residual(PmmNy, Pmm1, Pm, Pmp1, PmpNy, ...
+                                      CmmNy, Cmm1, Cm, Cmp1, CmpNy, ...
                                       Vm+del, Pinj);
         dRpdVm = (Rp_-Rp)./del;
         dRcdVm = (Rc_-Rc)./del;
@@ -522,23 +465,23 @@ function PVfinal = NumCoreSimFullyImplicit_2D(q, PVlimit)
         %% Derivatives with respect to injection Pressure
         % Perturb Pinj
         del = dl*(abs(Pinj) + 1);
-        [Rp_, Rc_, Rv_, Ri_] = Residual(PmmNyNz, PmmNz, Pmm1, Pm, Pmp1, PmpNz, PmpNyNz, ...
-                                        CmmNyNz, CmmNz, Cmm1, Cm, Cmp1, CmpNz, CmpNyNz, ...
-                                        Vm, Pinj+del);
+        [Rp_, Rc_, Rv_, Ri_] = Residual(PmmNy, Pmm1, Pm, Pmp1, PmpNy, ...
+                                      CmmNy, Cmm1, Cm, Cmp1, CmpNy, ...
+                                      Vm, Pinj+del);
 
         dRpdPinj = (Rp_(Injloc)-Rp(Injloc))./del;
         dRcdPinj = (Rc_(Injloc)-Rc(Injloc))./del;
         dRvdPinj = (Rv_(Injloc)-Rv(Injloc))./del;
         dRidPinj = (Ri_-Ri)./del;
 
-        V_val = [dRpdPmmNyNz; dRpdPmmNz; dRpdPmm1; dRpdPm; dRpdPmp1; dRpdPmpNz; dRpdPmpNyNz; ...
-                 dRpdCmmNyNz; dRpdCmmNz; dRpdCmm1; dRpdCm; dRpdCmp1; dRpdCmpNz; dRpdCmpNyNz; ...
+        V_val = [dRpdPmmNy; dRpdPmm1; dRpdPm; dRpdPmp1; dRpdPmpNy; ...
+                 dRpdCmmNy; dRpdCmm1; dRpdCm; dRpdCmp1; dRpdCmpNy; ...
                  dRpdVm; dRpdPinj; ...
-                 dRcdPmmNyNz; dRcdPmmNz; dRcdPmm1; dRcdPm; dRcdPmp1; dRcdPmpNz; dRcdPmpNyNz; ...
-                 dRcdCmmNyNz; dRcdCmmNz; dRcdCmm1; dRcdCm; dRcdCmp1; dRcdCmpNz; dRcdCmpNyNz; ...
+                 dRcdPmmNy; dRcdPmm1; dRcdPm; dRcdPmp1; dRcdPmpNy; ...
+                 dRcdCmmNy; dRcdCmm1; dRcdCm; dRcdCmp1; dRcdCmpNy; ...
                  dRcdVm; dRcdPinj; ...
-                 dRvdPmmNyNz; dRvdPmmNz; dRvdPmm1; dRvdPm; dRvdPmp1; dRvdPmpNz; dRvdPmpNyNz; ...
-                 dRvdCmmNyNz; dRvdCmmNz; dRvdCmm1; dRvdCm; dRvdCmp1; dRvdCmpNz; dRvdCmpNyNz; ...
+                 dRvdPmmNy; dRvdPmm1; dRvdPm; dRvdPmp1; dRvdPmpNy; ...
+                 dRvdCmmNy; dRvdCmm1; dRvdCm; dRvdCmp1; dRvdCmpNy; ...
                  dRvdVm; dRvdPinj; ...
                  dRpdPinj; dRidPinj];
         if(any(isinf(V_val)))
@@ -558,23 +501,23 @@ function PVfinal = NumCoreSimFullyImplicit_2D(q, PVlimit)
         while(~isconverged && iter < maxIter)
 
             % Extract variables
-            PmmNyNz_n = P(IDmmNyNz); PmmNz_n = P(IDmmNz); Pmm1_n = P(IDmm1); 
-            PmpNyNz_n = P(IDmpNyNz); PmpNz_n = P(IDmpNz); Pmp1_n = P(IDmp1); 
+            PmmNy_n = P(IDmmNy); Pmm1_n = P(IDmm1); 
+            PmpNy_n = P(IDmpNy); Pmp1_n = P(IDmp1); 
 
-            CmmNyNz_n = C(IDmmNyNz); CmmNz_n = C(IDmmNz); Cmm1_n = C(IDmm1); 
-            CmpNyNz_n = C(IDmpNyNz); CmpNz_n = C(IDmpNz); Cmp1_n = C(IDmp1); 
+            CmmNy_n = C(IDmmNy); Cmm1_n = C(IDmm1); 
+            CmpNy_n = C(IDmpNy); Cmp1_n = C(IDmp1); 
 
             Pm_n = P(IDm); Cm_n = C(IDm); Vm_n = V(IDm); Pinj_n = Pinj;
 
            
             % Update the residual
-            [Rp, Rc, Rv, RinjP] = Residual(PmmNyNz_n, PmmNz_n, Pmm1_n, Pm_n, Pmp1_n, PmpNz_n, PmpNyNz_n, ...
-                                           CmmNyNz_n, CmmNz_n, Cmm1_n, Cm_n, Cmp1_n, CmpNz_n, CmpNyNz_n, ...
+            [Rp, Rc, Rv, RinjP] = Residual(PmmNy_n, Pmm1_n, Pm_n, Pmp1_n, PmpNy_n, ...
+                                           CmmNy_n, Cmm1_n, Cm_n, Cmp1_n, CmpNy_n, ...
                                            Vm_n, Pinj_n);
             
             % Evaluate the Jacobian
-            J = Jacobian(PmmNyNz_n, PmmNz_n, Pmm1_n, Pm_n, Pmp1_n, PmpNz_n, PmpNyNz_n, ...
-                         CmmNyNz_n, CmmNz_n, Cmm1_n, Cm_n, Cmp1_n, CmpNz_n, CmpNyNz_n, ...
+            J = Jacobian(PmmNy_n, Pmm1_n, Pm_n, Pmp1_n, PmpNy_n, ...
+                         CmmNy_n, Cmm1_n, Cm_n, Cmp1_n, CmpNy_n, ...
                          Vm_n, Pinj_n, Rp, Rc, Rv, RinjP);
 
             warning('') % Clear last warning message
@@ -734,7 +677,7 @@ function PVfinal = NumCoreSimFullyImplicit_2D(q, PVlimit)
 
     save (FileName0, 'dxc', 'dyc', 'dzc', 'M','v1', 'Max_Exit_PoroL', ...
                      'C_HCl', 'H', 'w', 'L', 'pore_WH', 'Nx', 'Ny', ...
-                     'Nz', 'gridordinate', 'Nt', 'Storage', 'Storagecap')
+                     'gridordinate', 'Nt', 'Storage', 'Storagecap')
     
     ConcHClx    = ConcHCl;
     Volfracx    = Volfrac;
